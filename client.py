@@ -5,38 +5,53 @@ import sys
 HOST = '127.0.0.1'
 PORT = 65432
 
-# Create a socket object and bind it to the host and port
-with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as client_sock:
+# Function to send a message to the server to join the chat
+def join_chat(sock):
+    sock.sendto("joined".encode('utf-8'), (HOST, PORT))
 
-    # Get the name of the user
-    name = input("Enter your name: ")
+# Function to get the name of the user
+def get_name():
+    return input("Enter your name: ")
 
-    # Send the name and message to the server
-    def send_data():
-        while True:
-            text = input("Enter your message: ")
-            msg = f"{name}: {text}"
-            client_sock.sendto(msg.encode('utf-8'), (HOST, PORT))
+# Function to send messages to the server
+def send_data(sock):
+    name = get_name()
+    while True:
+        text = input("Enter your message: ")
+        if text == "":
+            print("Message cannot be empty")
+            continue
+        msg = f"{name}: {text}"
+        sock.sendto(msg.encode('utf-8'), (HOST, PORT))
 
-    # Receive the message from the server and print it
-    def receive_data():
-        while True:
-            data, addr = client_sock.recvfrom(4096)
-            message = data.decode('utf-8')
-            # Clear the current line and print the message on the same line
-            sys.stdout.write('\r' + ' ' * 100 + '\r')
-            print(message)
-            # Print the prompt for the user to enter a message again
-            sys.stdout.write("Enter your message: ")
-            sys.stdout.flush()
-    
-    # Start the send and receive threads
-    send_thread = threading.Thread(target=send_data)
-    send_thread.start()
+# Function to receive other clients messages from the server
+def receive_data(sock):
+    while True:
+        data, addr = sock.recvfrom(4096)
+        message = data.decode('utf-8')
+        
+        sys.stdout.write('\r' + ' ' * 100 + '\r')
+        print(message)
+        
+        sys.stdout.write("Enter your message: ")
+        sys.stdout.flush()
 
-    receive_thread = threading.Thread(target=receive_data)
-    receive_thread.start()
+# Main function to run the client
+def main():
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as client_sock:
+        join_chat(client_sock)
 
-    # Wait for the threads to finish
-    send_thread.join()
-    receive_thread.join()
+        
+        send_thread = threading.Thread(target=send_data, args=(client_sock,))
+        send_thread.start()
+
+        receive_thread = threading.Thread(target=receive_data, args=(client_sock,))
+        receive_thread.start()
+
+
+        send_thread.join()
+        receive_thread.join()
+
+# Run only the main function if this script is executed
+if __name__ == '__main__':
+    main()

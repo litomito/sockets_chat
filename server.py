@@ -1,55 +1,58 @@
 import socket
-import threading
 
 HOST = '127.0.0.1'
 PORT = 65432
 
-# Create an empty list to store the clients
-clients = []
+# Dictionary to store clients and their status (True if they have sent a message, False otherwise)
+clients = {}
 
-# Create a socket object and bind it to the host and port
+# Create a socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind((HOST, PORT))
-sock.settimeout(1) # Set the timeout to 1 second
+sock.settimeout(1) 
 print(f'Listening on {HOST}:{PORT}')
 
-# Receive data from the clients and return the data and the address
+# Function to receive data from the socket
 def get_data():
     data, addr = sock.recvfrom(4096)
     return data, addr
-    
-# Add a client to the list of clients if it is not already in the list
+
+# Function to add a client to the clients dictionary
 def add_client(addr):
     if addr not in clients:
-        clients.append(addr)
+        clients[addr] = False 
         print(f"New client connected: {addr}")
 
-# Send the data to all the clients except the sender of the data
+# Function to send data to all clients except the sender
 def send_data(data, sender_addr):
     for client in clients:
         if client != sender_addr:
             sock.sendto(data, client)
 
-# Handle the client connections and messages received from the clients
+# Function to handle the client connections and messages
 def handle_client():
     while True:
         try:
             data, addr = get_data()
             add_client(addr)
-            send_data(data, addr)
-            print(f"Received message from {addr}: {data.decode('utf-8')}")
+            if not clients[addr]:
+                clients[addr] = True
+                print(f"Received first message from {addr} (not broadcasting): {data.decode('utf-8')}")
+            else:
+                send_data(data, addr)
+                print(f"Received message from {addr}: {data.decode('utf-8')}")
         except socket.timeout:
             continue
-    
-# Start the thread to handle the client connections and messages
-thread = threading.Thread(target=handle_client)
-thread.start()
 
-# Wait for the thread to finish
-try:
-    thread.join() 
-except KeyboardInterrupt: 
-    # Handle the KeyboardInterrupt exception when the user presses Ctrl+C to stop the server
-    print("\nServer is shutting down.")
-finally:
-    sock.close() 
+# Main function to run the server
+def main():
+    try:
+        handle_client()
+    except KeyboardInterrupt:
+        print("\nServer is shutting down.")
+    finally:
+        sock.close()
+
+# Run only the main function if this script is executed
+if __name__ == '__main__':
+    main()
